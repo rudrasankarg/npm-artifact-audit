@@ -198,6 +198,22 @@ const CONTENT_RULES = [
   { id: 'vault-token',        severity: 'error', label: 'HashiCorp Vault / Terraform Cloud token',
     re: /hvs\.[A-Za-z0-9]{24,}/ },
 
+  // Doppler
+  { id: 'doppler-token',      severity: 'error', label: 'Doppler service token (dp.st.)',
+    re: /dp\.st\.[a-zA-Z0-9]{40,}/ },
+
+  // Twilio
+  { id: 'twilio-token',       severity: 'error', label: 'Twilio API key (SK...)',
+    re: /SK[a-f0-9]{32}/ },
+
+  // SendGrid
+  { id: 'sendgrid-key',       severity: 'error', label: 'SendGrid API key (SG.)',
+    re: /SG\.[A-Za-z0-9_-]{22}\.[A-Za-z0-9_-]{43}/ },
+
+  // Cloudflare
+  { id: 'cloudflare-token',   severity: 'error', label: 'Cloudflare API token',
+    re: /[A-Za-z0-9_-]{40}(?=[^A-Za-z0-9_-]|$)/ },
+
   // Generic patterns (warn, not error — too broad for error)
   { id: 'generic-secret',     severity: 'warn',  label: 'Generic API key / secret assignment',
     re: /(api[_-]?key|api[_-]?secret|secret[_-]?key|access[_-]?token|auth[_-]?token)\s*[:=]\s*["']?[A-Za-z0-9_\-]{20,}["']?/i },

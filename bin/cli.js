@@ -2,6 +2,7 @@
 'use strict';
 
 const { scanPackage, formatBytes } = require('../src/scan');
+const { loadConfig } = require('../src/config');
 
 // ─── ANSI color helpers (zero dependencies) ──────────────────────────────────
 const IS_TTY = process.stdout.isTTY;
@@ -33,6 +34,7 @@ ${bold('Usage:')}
 ${bold('Options:')}
   --allow-src          Don't warn about src/ directory being included
   --fail-on warnings   Also exit 1 when warnings are found (default: errors only)
+  --fix                Auto-generate .npmignore entries for every error found
   --quiet              Suppress output when the scan passes (useful in scripts)
   --json               Output results as JSON (for CI parsing)
   --version, -v        Show version number
@@ -150,8 +152,49 @@ function printJson({ errors, warnings, fileCount, totalBytes, meta }, opts = {})
   };
   console.log(JSON.stringify(out, null, 2));
 }
+// ─── Auto-fix: write .npmignore entries ─────────────────────────────────────
 
-// ─── Main ────────────────────────────────────────────────────────────────────
+function applyFix(findings, targetDir) {
+  const fs = require('fs');
+  const path = require('path');
+  const npmignorePath = path.join(targetDir, '.npmignore');
+
+  // Collect unique paths/patterns to add
+  const entries = new Set();
+  for (const f of findings) {
+    if (f.path === '(whole package)') continue;
+    // Strip filename to get just the top-level entry, e.g. ".env.production" → ".env*"
+    const parts = f.path.split('/');
+    const topLevel = parts[0];
+    if (f.id === 'env-file')         { entries.add('.env*'); continue; }
+    if (f.id === 'source-map')       { entries.add('*.map'); continue; }
+    if (f.id === 'log-file')         { entries.add('*.log'); continue; }
+    if (f.id === 'local-db')         { entries.add('*.sqlite'); entries.add('*.db'); continue; }
+    if (f.id === 'private-key-file') { entries.add('*.pem'); entries.add('*.key'); entries.add('*.pfx'); entries.add('*.p12'); continue; }
+    entries.add(topLevel.startsWith('.') ? topLevel : parts.length > 1 ? `${topLevel}/` : topLevel);
+  }
+
+  if (entries.size === 0) return;
+
+  const existing = fs.existsSync(npmignorePath)
+    ? fs.readFileSync(npmignorePath, 'utf8')
+    : '';
+
+  const toAdd = [...entries].filter(e => !existing.includes(e));
+  if (toAdd.length === 0) {
+    console.log(dim('  (all entries already in .npmignore)'));
+    return;
+  }
+
+  const header = existing.trim() ? '' : '# Added by npm-publish-guard --fix\n';
+  const block  = `\n# npm-publish-guard --fix (${new Date().toISOString().slice(0,10)})\n${toAdd.join('\n')}\n`;
+  fs.appendFileSync(npmignorePath, header + block, 'utf8');
+
+  console.log(green(`✔  Added ${toAdd.length} entr${toAdd.length === 1 ? 'y' : 'ies'} to .npmignore:`));
+  for (const e of toAdd) console.log(`   ${cyan(e)}`);
+  console.log('');
+}
+
 
 function main() {
   const args = process.argv.slice(2);
@@ -169,19 +212,30 @@ function main() {
   const useJson       = args.includes('--json');
   const allowSrc      = args.includes('--allow-src');
   const quiet         = args.includes('--quiet');
+  const fix           = args.includes('--fix');
   const failOnWarnings = args.includes('--fail-on') &&
     args[args.indexOf('--fail-on') + 1] === 'warnings';
 
   const targetDir = process.cwd();
-  const printOpts = { quiet, failOnWarnings };
 
-  if (!useJson && !quiet) {
+  // Load config file, CLI flags override it
+  const fileCfg = loadConfig(targetDir);
+  const cfg = {
+    allowSrc:       allowSrc      || fileCfg.allowSrc,
+    failOnWarnings:  failOnWarnings || fileCfg.failOnWarnings,
+    quiet:           quiet          || fileCfg.quiet,
+    ignoreRules:     fileCfg.ignoreRules || [],
+  };
+
+  const printOpts = { quiet: cfg.quiet, failOnWarnings: cfg.failOnWarnings };
+
+  if (!useJson && !cfg.quiet) {
     process.stdout.write(dim(`npm-publish-guard: running npm pack in ${targetDir} …\n`));
   }
 
   let result;
   try {
-    result = scanPackage(targetDir, { allowSrc });
+    result = scanPackage(targetDir, { allowSrc: cfg.allowSrc });
   } catch (err) {
     if (useJson) {
       console.log(JSON.stringify({ error: err.message, passed: false }, null, 2));
@@ -192,14 +246,28 @@ function main() {
     process.exit(2);
   }
 
+  // Apply ignoreRules filter
+  if (cfg.ignoreRules.length > 0) {
+    result.errors   = result.errors.filter(f   => !cfg.ignoreRules.includes(f.id));
+    result.warnings = result.warnings.filter(f => !cfg.ignoreRules.includes(f.id));
+  }
+
   if (useJson) {
     printJson(result, printOpts);
   } else {
     printResults(result, printOpts);
+
+    // Apply --fix after printing results so the user sees what was found
+    if (fix && (result.errors.length > 0 || result.warnings.length > 0)) {
+      console.log(bold('Applying --fix: updating .npmignore…'));
+      applyFix([...result.errors, ...result.warnings], targetDir);
+    } else if (fix) {
+      console.log(dim('  --fix: nothing to add (no issues found).'));
+    }
   }
 
   const shouldFail = result.errors.length > 0 ||
-    (failOnWarnings && result.warnings.length > 0);
+    (cfg.failOnWarnings && result.warnings.length > 0);
   process.exit(shouldFail ? 1 : 0);
 }
 

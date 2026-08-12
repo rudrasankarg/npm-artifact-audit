@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.1.0] — 2026-08-12
+
+### Added
+- **GitHub Action** — use as `rudrasankarg/npm-publish-guard@v1` in CI. Emits inline PR annotations.
+  - Inputs: `directory`, `allow-src`, `fail-on`
+- **Programmatic API** — `const { scan } = require('npm-publish-guard')`
+- **`--fix` flag** — auto-appends `.npmignore` entries for every finding
+- **Config file** — `.publish-guardrc.json` or `package.json#publishGuard`
+  - Supports `allowSrc`, `failOnWarnings`, `quiet`, `ignoreRules`
+- **4 new secret patterns**: Doppler (`dp.st.`), Twilio (`SK[hex32]`), SendGrid (`SG.`), Cloudflare (40-char token)
+- **Dual bin alias**: `publish-guard` (short form) + `npm-publish-guard`
+
+---
+
 ## [1.0.0] — 2026-08-12
 
 Initial stable release.

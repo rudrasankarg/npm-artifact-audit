@@ -15,7 +15,7 @@
 npx npm-publish-guard
 ```
 
-Or wire it in so it **runs automatically before every publish** — no memory required:
+Or wire it so it **runs automatically before every publish**:
 
 ```json
 {
@@ -27,6 +27,42 @@ Or wire it in so it **runs automatically before every publish** — no memory re
 
 ```bash
 npm install --save-dev npm-publish-guard
+```
+
+---
+
+## GitHub Action
+
+Add this to `.github/workflows/publish-guard.yml`:
+
+```yaml
+name: Publish Guard
+on: [push, pull_request]
+
+jobs:
+  publish-guard:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: rudrasankarg/npm-publish-guard@v1
+```
+
+**That's it.** Every push gets scanned. Findings appear as inline annotations on your PR diff.
+
+### Action inputs
+
+| Input | Default | Description |
+|---|---|---|
+| `directory` | `.` | Directory of the npm package to scan |
+| `allow-src` | `false` | Don't warn about `src/` directory |
+| `fail-on` | `errors` | Set to `warnings` to also fail on warnings |
+
+```yaml
+- uses: rudrasankarg/npm-publish-guard@v1
+  with:
+    allow-src: true
+    fail-on: warnings
+    directory: ./packages/my-lib
 ```
 
 ---
@@ -105,6 +141,10 @@ The key difference: this tool uses `npm pack` itself (not a reimplementation) to
 | `gcp-key-id` | `"private_key_id": "<40-hex>"` |
 | `azure-sas` | `SharedAccessSignature...sv=` |
 | `vault-token` | `hvs.` (HashiCorp Vault / Terraform Cloud) |
+| `doppler-token` | `dp.st.` Doppler service tokens |
+| `twilio-token` | `SK[a-f0-9]{32}` Twilio API key |
+| `sendgrid-key` | `SG.` SendGrid API key |
+| `cloudflare-token` | 40-character Cloudflare API token |
 
 ### Warnings — advisory
 
@@ -155,12 +195,74 @@ Exit codes: `0` = clean, `1` = errors found (or warnings with `--fail-on warning
 
 | Flag | Description |
 |---|---|
+| `--fix` | Auto-generate `.npmignore` entries for every finding |
 | `--allow-src` | Don't warn about `src/` directory being included |
 | `--fail-on warnings` | Also exit 1 when warnings are found (strict mode) |
-| `--quiet` | Suppress all output when the scan passes (for use in scripts) |
+| `--quiet` | Suppress all output when the scan passes |
 | `--json` | Output results as JSON (for CI parsing) |
 | `--version`, `-v` | Show version |
 | `--help`, `-h` | Show help |
+
+### `--fix` — auto-fix your `.npmignore`
+
+```bash
+npx npm-publish-guard --fix
+```
+
+Finds issues, prints them, then automatically appends the correct entries to your `.npmignore`. Instead of reading the error and manually editing the file, one flag does it.
+
+---
+
+## Config file
+
+Create `.publish-guardrc.json` in your project root to persist settings for your team:
+
+```json
+{
+  "allowSrc": true,
+  "failOnWarnings": false,
+  "quiet": false,
+  "ignoreRules": ["tooling-config", "test-files"]
+}
+```
+
+Or put the same config under a `"publishGuard"` key in your `package.json`:
+
+```json
+{
+  "publishGuard": {
+    "allowSrc": true,
+    "ignoreRules": ["src-directory"]
+  }
+}
+```
+
+CLI flags always override the config file.
+
+---
+
+## Programmatic API
+
+```bash
+npm install npm-publish-guard
+```
+
+```js
+const { scan } = require('npm-publish-guard');
+
+const result = scan({
+  directory:      './packages/my-lib',  // default: process.cwd()
+  allowSrc:       false,                // default: false
+  failOnWarnings:  false,                // default: false
+});
+
+console.log(result.passed);    // boolean
+console.log(result.errors);    // array of findings
+console.log(result.warnings);  // array of findings
+console.log(result.fileCount); // number
+console.log(result.totalBytes);// number
+console.log(result.meta);      // { name, version, ... }
+```
 
 ---
 

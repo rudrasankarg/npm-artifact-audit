@@ -1,8 +1,9 @@
 {
   "name": "npm-publish-guard",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Scans exactly what `npm publish` would ship — for leaked secrets and dangerous files — before it happens.",
   "author": "Rudra Sankar Ghosh Dastidar",
+  "main": "src/index.js",
   "bin": {
     "npm-publish-guard": "bin/cli.js",
     "publish-guard": "bin/cli.js"
@@ -28,7 +29,8 @@
     "env-file",
     "leak-prevention",
     "source-map",
-    "publish-safety"
+    "publish-safety",
+    "github-action"
   ],
   "license": "MIT",
   "engines": {
@@ -40,6 +42,8 @@
   "files": [
     "bin",
     "src",
+    "action.yml",
+    "action-entrypoint.js",
     "README.md",
     "LICENSE",
     "CHANGELOG.md"

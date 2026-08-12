@@ -1,0 +1,25 @@
+name: 'npm-publish-guard'
+description: 'Scan exactly what npm publish would ship — for leaked secrets, dangerous files, and packaging mistakes — before it happens.'
+author: 'Rudra Sankar Ghosh Dastidar'
+
+branding:
+  icon: 'shield'
+  color: 'red'
+
+inputs:
+  directory:
+    description: 'Directory of the npm package to scan'
+    required: false
+    default: '.'
+  allow-src:
+    description: "Don't warn about src/ directory being included"
+    required: false
+    default: 'false'
+  fail-on:
+    description: 'Minimum severity to fail on. Use "warnings" to also fail on warnings.'
+    required: false
+    default: 'errors'
+
+runs:
+  using: 'node20'
+  main: 'action-entrypoint.js'
