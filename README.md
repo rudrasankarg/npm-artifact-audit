@@ -1,53 +1,83 @@
-# npm-publish-guard
+# npm-artifact-audit
 
-> Scan exactly what `npm publish` would ship — for leaked secrets, dangerous files, and packaging mistakes — **before** it happens.
+> Treat your npm package as a security artifact. Audits execution surfaces, file contents, sizes, dependencies, and diffs against the registry before shipping.
 
-[![npm version](https://img.shields.io/npm/v/npm-publish-guard.svg)](https://www.npmjs.com/package/npm-publish-guard)
-[![license](https://img.shields.io/npm/l/npm-publish-guard.svg)](LICENSE)
-[![node](https://img.shields.io/node/v/npm-publish-guard.svg)](package.json)
+[![npm version](https://img.shields.io/npm/v/npm-artifact-audit.svg)](https://www.npmjs.com/package/npm-artifact-audit)
+[![license](https://img.shields.io/npm/l/npm-artifact-audit.svg)](LICENSE)
+[![node](https://img.shields.io/node/v/npm-artifact-audit.svg)](package.json)
 
 ---
 
 ## Quick Start
 
 ```bash
-# Run once, right now, in any npm package directory
-npx npm-publish-guard
+# Run the security & artifact audit in any npm package directory
+npx npm-artifact-audit
 ```
 
-Or wire it so it **runs automatically before every publish**:
+Or configure it to **run automatically before every publish** (in `package.json`):
 
 ```json
 {
   "scripts": {
-    "prepublishOnly": "npm-publish-guard"
+    "prepublishOnly": "npm-artifact-audit"
   }
 }
 ```
 
 ```bash
-npm install --save-dev npm-publish-guard
+npm install --save-dev npm-artifact-audit
 ```
+
+---
+
+## Commands
+
+### 1. `npm-artifact-audit` (or `audit`)
+Performs a deep scan of the package's unpacked files, code contents, and dependencies.
+
+* Checks for leaked secrets/credentials (AWS, Stripe, OpenAI, Anthropic, private keys, etc.).
+* Warns about accidental package file inclusions (log files, raw `src/`, tooling configs, test fixtures).
+* Audits the **Dependency Surface** and reports production dependency metrics.
+
+### 2. `npm-artifact-audit diff [version]`
+Compares the current local package build against a previously published version from the registry (defaults to `latest`).
+
+* Tracks newly added, removed, or significantly altered files.
+* Detects **new dependencies** introduced since the last release.
+* Highlights **new execution surfaces** (e.g. newly introduced `postinstall` or `preinstall` scripts).
+
+### 3. `npm-artifact-audit why [file]`
+Answers the question: **Why is this file inside my npm package?**
+
+* Explains if a file was included because of the `files` array whitelist in `package.json`, because it is a default npm required inclusion, or because it was not ignored by `.npmignore`/`.gitignore`.
+* Provides suggestions on how to fix accidental inclusions.
+
+### 4. `npm-artifact-audit reproduce`
+Builds your package twice in temporary directories and compares the resulting tarball hashes to check for **build reproducibility**.
+
+* Reports mismatches and identifies nondeterministic file additions/differences.
 
 ---
 
 ## GitHub Action
 
-Add this to `.github/workflows/publish-guard.yml`:
+Add this to `.github/workflows/artifact-audit.yml`:
 
 ```yaml
-name: Publish Guard
+name: Artifact Audit
 on: [push, pull_request]
 
 jobs:
-  publish-guard:
+  audit:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: rudrasankarg/npm-publish-guard@v1
 ```
 
-**That's it.** Every push gets scanned. Findings appear as inline annotations on your PR diff.
+> [!NOTE]
+> The GitHub action is backwards compatible and supports all features, displaying findings directly as inline annotations on your PR diffs.
 
 ### Action inputs
 
@@ -57,288 +87,41 @@ jobs:
 | `allow-src` | `false` | Don't warn about `src/` directory |
 | `fail-on` | `errors` | Set to `warnings` to also fail on warnings |
 
-```yaml
-- uses: rudrasankarg/npm-publish-guard@v1
-  with:
-    allow-src: true
-    fail-on: warnings
-    directory: ./packages/my-lib
-```
-
 ---
 
-## Why this exists
+## What is Scanned & Audited
 
-`npm publish` doesn't publish your source folder — it builds a tarball based on three rules that interact in surprising ways:
+### Security Checks
+* **Credentials & Tokens:** Detects AWS keys, GitHub tokens, Stripe secrets, OpenAI keys, Anthropic tokens, npm tokens, private PEM keys, and GCP markers.
+* **Suspicious Hook Scripts:** Audits package installers (`preinstall`, `postinstall`, etc.) for network requests, filesystem writes, and child process execution.
+* **Executable Binaries:** Scan magic bytes for embedded native binaries (ELF, PE, Mach-O) and compiled scripts.
 
-- If **`.npmignore`** exists, your **`.gitignore` is ignored entirely**. Files you excluded from git can still ship to npm.
-- The **`files`** field in `package.json`, if present, overrides both ignore files.
-- The interaction between these three is npm-specific logic that generic scanners don't know about.
-
-The result: `.env` files, private keys, source maps, and AI config quietly end up in public packages. This isn't hypothetical:
-
-- **Anthropic leaked their Claude Code source code to npm twice** via accidentally included `.map` files — a 59.8MB source map containing ~512,000 lines of TypeScript. The second time was March 31, 2026, one year after the first incident. This tool would have caught it both times.
-- Thousands of real packages have leaked API keys, `.env` files, and SSH keys this way.
-
-`npm-publish-guard` automates the check you'd otherwise do manually: run `npm pack`, read the file list, look for anything dangerous. It blocks the publish if it finds a problem.
-
----
-
-## How it differs from other tools
-
-| Tool | What it does | Gap |
-|---|---|---|
-| `gitleaks` / `trufflehog` | Scans git **history** for secrets | Doesn't know what npm will actually ship |
-| `npm audit` | Checks your **dependencies** for CVEs | Doesn't scan your own files |
-| Socket.dev | Behavioral analysis of **dependencies** | Different layer entirely |
-| `npm pack --dry-run` | Lists files, no analysis | You have to read the list yourself |
-| **npm-publish-guard** | Scans exactly what `npm pack` produces | **The only tool in this specific niche** |
-
-The key difference: this tool uses `npm pack` itself (not a reimplementation) to determine what will ship, then scans those exact files. `.npmignore` / `.gitignore` / `files` field precedence is handled correctly because npm does it.
-
----
-
-## What it checks
-
-### Errors — block publish
-
-| Rule | What's caught |
-|---|---|
-| `env-file` | `.env`, `.env.production`, `.env.local`, etc. |
-| `npm-auth` | `.npmrc` (auth tokens for private registries) |
-| `aws-credentials` | `.aws/credentials` |
-| `ssh-key` | `id_rsa`, `id_ed25519`, etc. |
-| `private-key-file` | `*.pem`, `*.key`, `*.pfx`, `*.p12` |
-| `source-map` | `*.map` — exposes full unminified source |
-| `git-dir` | `.git/`, `.svn/` directories |
-| `claude-settings` | `.claude/settings.local.json` |
-| `cursor-settings` | `.cursor/settings.json` |
-| `google-credentials` | `credentials.json` |
-| `google-service-account` | `service-account*.json` |
-| `local-db` | `*.sqlite`, `*.db` |
-| `shell-history` | `.bash_history`, `.zsh_history` |
-| `netrc` | `.netrc` |
-| `docker-config` | `.docker/config.json` |
-| `large-file-extreme` | Any file over 20MB |
-| `package-too-large` | Total package over 20MB |
-
-**Secret content patterns (error):**
-
-| Rule | Matches |
-|---|---|
-| `aws-key-id` | `AKIA[A-Z0-9]{16}` |
-| `aws-secret` | `aws_secret_access_key = ...` |
-| `pem-block` | `-----BEGIN PRIVATE KEY-----` |
-| `github-pat-new` | `github_pat_...` (fine-grained) |
-| `github-ghp/gho/ghs` | `ghp_`, `gho_`, `ghs_` tokens |
-| `stripe-secret` | `sk_live_...`, `rk_live_...` |
-| `openai-key` | `sk-proj-...` and legacy `sk-...T3BlbkFJ...` |
-| `anthropic-key` | `sk-ant-api...` |
-| `huggingface-token` | `hf_...` |
-| `slack-token` | `xox[baprs]-...` |
-| `npm-token` | `npm_...` |
-| `jwt` | `eyJ...` JWT-shaped strings |
-| `gcp-key-id` | `"private_key_id": "<40-hex>"` |
-| `azure-sas` | `SharedAccessSignature...sv=` |
-| `vault-token` | `hvs.` (HashiCorp Vault / Terraform Cloud) |
-| `doppler-token` | `dp.st.` Doppler service tokens |
-| `twilio-token` | `SK[a-f0-9]{32}` Twilio API key |
-| `sendgrid-key` | `SG.` SendGrid API key |
-| `cloudflare-token` | 40-character Cloudflare API token |
-
-### Warnings — advisory
-
-| Rule | What's caught |
-|---|---|
-| `test-files` | `.test.ts`, `.spec.js`, `__tests__/`, `test/` |
-| `ide-files` | `.vscode/`, `.idea/`, `.cursor/` |
-| `tooling-config` | `.eslintrc.*`, `jest.config.js`, `.babelrc`, etc. |
-| `log-file` | `*.log` files |
-| `src-directory` | Raw `src/` (use `--allow-src` to suppress) |
-| `large-file` | Files between 5–20MB |
-| `generic-secret` | `api_key=`, `access_token=`, `secret_key=` patterns |
-
----
-
-## Example output
-
-```
-npm-publish-guard — pre-publish safety check
-──────────────────────────────────────────────────────
-Package:  my-package@2.1.88
-Size:     59.8MB
-Scanning  6 file(s)…
-
-⚠  1 warning
-   ▸ src/index.test.ts (5B)
-     Test files — usually not needed by package consumers
-     → Use the 'files' field in package.json or .npmignore to exclude tests.
-
-✖  2 errors — publish blocked
-   ▸ dist/cli.js.map (59.8MB)
-     Source map — exposes your full unminified source code
-     → Add '*.map' to .npmignore, or set sourceMap: false in your bundler config.
-
-   ▸ .env (21B)
-     .env file — may contain API keys or secrets
-     → Add '.env*' to .npmignore or use the 'files' field in package.json.
-
-──────────────────────────────────────────────────────
-Publish aborted. Fix the errors above before publishing.
-```
-
-Exit codes: `0` = clean, `1` = errors found (or warnings with `--fail-on warnings`), `2` = tool error.
-
----
-
-## Options
-
-| Flag | Description |
-|---|---|
-| `--fix` | Auto-generate `.npmignore` entries for every finding |
-| `--allow-src` | Don't warn about `src/` directory being included |
-| `--fail-on warnings` | Also exit 1 when warnings are found (strict mode) |
-| `--quiet` | Suppress all output when the scan passes |
-| `--json` | Output results as JSON (for CI parsing) |
-| `--version`, `-v` | Show version |
-| `--help`, `-h` | Show help |
-
-### `--fix` — auto-fix your `.npmignore`
-
-```bash
-npx npm-publish-guard --fix
-```
-
-Finds issues, prints them, then automatically appends the correct entries to your `.npmignore`. Instead of reading the error and manually editing the file, one flag does it.
-
----
-
-## Config file
-
-Create `.publish-guardrc.json` in your project root to persist settings for your team:
-
-```json
-{
-  "allowSrc": true,
-  "failOnWarnings": false,
-  "quiet": false,
-  "ignoreRules": ["tooling-config", "test-files"]
-}
-```
-
-Or put the same config under a `"publishGuard"` key in your `package.json`:
-
-```json
-{
-  "publishGuard": {
-    "allowSrc": true,
-    "ignoreRules": ["src-directory"]
-  }
-}
-```
-
-CLI flags always override the config file.
+### Packaging Checks
+* **Artifact Bloat:** Warns on source maps (`.map`), tests, logs, or tooling configurations shipped accidentally.
+* **Size Intelligence:** Alerts on individual files or total package unpacked size exceeding thresholds (5MB warning, 20MB error).
 
 ---
 
 ## Programmatic API
 
 ```bash
-npm install npm-publish-guard
+npm install npm-artifact-audit
 ```
 
-```js
-const { scan } = require('npm-publish-guard');
+```javascript
+const { audit } = require('npm-artifact-audit');
 
-const result = scan({
-  directory:      './packages/my-lib',  // default: process.cwd()
-  allowSrc:       false,                // default: false
-  failOnWarnings:  false,                // default: false
+const result = await audit({
+  directory: '.',       // default: process.cwd()
+  allowSrc: false       // default: false
 });
 
-console.log(result.passed);    // boolean
-console.log(result.errors);    // array of findings
-console.log(result.warnings);  // array of findings
-console.log(result.fileCount); // number
-console.log(result.totalBytes);// number
-console.log(result.meta);      // { name, version, ... }
+console.log(result.findings); // Array of audit findings
+console.log(result.meta);     // package.json metadata
 ```
-
----
-
-## JSON output
-
-Use `--json` for machine-readable output in CI pipelines:
-
-```bash
-npx npm-publish-guard --json
-```
-
-```json
-{
-  "package": { "name": "my-pkg", "version": "1.0.0", "size": 1234, "fileCount": 3 },
-  "errors": [
-    {
-      "file": "dist/app.js.map",
-      "rule": "source-map",
-      "severity": "error",
-      "description": "Source map — exposes your full unminified source code",
-      "fix": "Add '*.map' to .npmignore, or set sourceMap: false in your bundler config."
-    }
-  ],
-  "warnings": [],
-  "passed": false
-}
-```
-
----
-
-## CI integration
-
-Exit code `1` on errors means it blocks pipelines automatically.
-
-**GitHub Actions:**
-```yaml
-- name: Check for publish safety
-  run: npx npm-publish-guard
-
-# Strict mode — also block on warnings:
-- name: Check for publish safety (strict)
-  run: npx npm-publish-guard --fail-on warnings
-```
-
-**GitLab CI:**
-```yaml
-publish:
-  script:
-    - npx npm-publish-guard
-    - npm publish
-```
-
-**prepublishOnly (recommended):**
-```json
-{
-  "scripts": {
-    "prepublishOnly": "npm-publish-guard"
-  }
-}
-```
-
----
-
-## How it works
-
-Internally runs `npm pack --json` to get the exact file set npm would publish — using npm's own resolution logic, not a reimplementation. That means `.npmignore` vs `.gitignore` vs `files` field precedence is handled correctly. Each file is then checked against filename rules and scanned for secret-shaped content patterns. Temp files are cleaned up automatically.
-
----
-
-## What this is not
-
-- **Not a general-purpose secret scanner.** Tools like [gitleaks](https://github.com/gitleaks/gitleaks) and [trufflehog](https://github.com/trufflesecurity/trufflehog) scan your git history — use those too. This tool is scoped to the npm publish surface specifically.
-- **Not a guarantee.** Regex-based matching will miss obfuscated or unusual secret formats. Treat findings as "review this," not "definitely a leak."
 
 ---
 
 ## License
 
-MIT — [Rudra Sankar Ghosh Dastidar](https://github.com/rudrasankarg)
+MIT — Rudra Sankar Ghosh Dastidar
