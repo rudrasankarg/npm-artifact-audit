@@ -1,5 +1,5 @@
 /**
- * GitHub Action entrypoint for npm-publish-guard.
+ * GitHub Action entrypoint for npm-publish-guard / npm-artifact-audit.
  *
  * Reads inputs from environment variables set by the Actions runner
  * (INPUT_DIRECTORY, INPUT_ALLOW-SRC, INPUT_FAIL-ON) and runs the scanner.
@@ -8,7 +8,11 @@
 'use strict';
 
 const path = require('path');
-const { scanPackage, formatBytes } = require('./src/scan');
+const fs = require('fs');
+const { packAndUnpack } = require('./src/artifact/pack');
+const { readManifest } = require('./src/artifact/manifest');
+const { inspectPackage } = require('./src/artifact/inspect');
+const { formatBytes } = require('./src/reporters/terminal');
 
 // ── Read Action inputs ────────────────────────────────────────────────────────
 const directory    = process.env['INPUT_DIRECTORY'] || '.';
@@ -32,46 +36,62 @@ const gha = {
 gha.group('npm-publish-guard scan');
 console.log(`Scanning: ${targetDir}`);
 
-let result;
+let packResult;
 try {
-  result = scanPackage(targetDir, { allowSrc });
+  packResult = packAndUnpack(targetDir, false);
 } catch (err) {
   gha.endGroup();
   gha.setFailed(`npm-publish-guard: ${err.message}`);
   process.exit(1);
 }
 
-const { errors, warnings, fileCount, totalBytes, meta } = result;
-console.log(`Package: ${meta.name}@${meta.version}  |  ${formatBytes(totalBytes)}  |  ${fileCount} files`);
+try {
+  const manifest = readManifest(packResult.extractDir);
+  const findings = inspectPackage(packResult.extractDir, {
+    projectDir: targetDir,
+    manifest,
+    allowSrc,
+  });
 
-// Emit inline annotations
-for (const f of errors) {
-  gha.error(
-    `[${f.id}] ${f.label} — Fix: ${f.fix}`,
-    f.path,
-  );
-}
-for (const f of warnings) {
-  gha.warning(
-    `[${f.id}] ${f.label} — Fix: ${f.fix}`,
-    f.path,
-  );
-}
+  const errors = findings.filter(f => f.severity === 'error');
+  const warnings = findings.filter(f => f.severity === 'warn');
+  const fileCount = packResult.meta.files ? packResult.meta.files.length : findings.length;
+  const totalBytes = packResult.meta.unpackedSize || packResult.meta.size;
+  const meta = manifest;
 
-gha.endGroup();
+  console.log(`Package: ${meta.name}@${meta.version}  |  ${formatBytes(totalBytes)}  |  ${fileCount} files`);
 
-// ── Summary ───────────────────────────────────────────────────────────────────
-if (errors.length > 0) {
-  gha.setFailed(
-    `npm-publish-guard: ${errors.length} error(s) found — publish would be blocked. ` +
-    `Run \`npx npm-publish-guard\` locally for details.`
-  );
-} else if (failOnWarn && warnings.length > 0) {
-  gha.setFailed(
-    `npm-publish-guard: ${warnings.length} warning(s) found and --fail-on warnings is set.`
-  );
-} else if (warnings.length > 0) {
-  gha.notice(`${warnings.length} advisory warning(s). Run \`npx npm-publish-guard\` locally for details.`);
-} else {
-  gha.notice(`All clear — ${fileCount} files scanned, no issues found.`);
+  // Emit inline annotations
+  for (const f of errors) {
+    gha.error(
+      `[${f.id}] ${f.label} — Fix: ${f.fix}`,
+      f.path,
+    );
+  }
+  for (const f of warnings) {
+    gha.warning(
+      `[${f.id}] ${f.label} — Fix: ${f.fix}`,
+      f.path,
+    );
+  }
+
+  gha.endGroup();
+
+  // ── Summary ───────────────────────────────────────────────────────────────────
+  if (errors.length > 0) {
+    gha.setFailed(
+      `npm-publish-guard: ${errors.length} error(s) found — publish would be blocked. ` +
+      `Run \`npx npm-publish-guard\` locally for details.`
+    );
+  } else if (failOnWarn && warnings.length > 0) {
+    gha.setFailed(
+      `npm-publish-guard: ${warnings.length} warning(s) found and --fail-on warnings is set.`
+    );
+  } else if (warnings.length > 0) {
+    gha.notice(`${warnings.length} advisory warning(s). Run \`npx npm-publish-guard\` locally for details.`);
+  } else {
+    gha.notice(`All clear — ${fileCount} files scanned, no issues found.`);
+  }
+} finally {
+  fs.rmSync(packResult.tmpDir, { recursive: true, force: true });
 }

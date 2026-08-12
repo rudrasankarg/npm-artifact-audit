@@ -1,16 +1,17 @@
 {
-  "name": "npm-publish-guard",
-  "version": "1.1.0",
-  "description": "Scans exactly what `npm publish` would ship — for leaked secrets and dangerous files — before it happens.",
+  "name": "npm-artifact-audit",
+  "version": "1.2.0",
+  "description": "Treat your npm package as a security artifact: audit execution surface, sizes, dependencies, and diff against the registry before shipping.",
   "author": "Rudra Sankar Ghosh Dastidar",
   "main": "src/index.js",
   "bin": {
+    "npm-artifact-audit": "bin/cli.js",
     "npm-publish-guard": "bin/cli.js",
     "publish-guard": "bin/cli.js"
   },
   "type": "commonjs",
   "scripts": {
-    "prepublishOnly": "node bin/cli.js --allow-src"
+    "prepublishOnly": "node bin/cli.js audit --allow-src"
   },
   "keywords": [
     "npm",
