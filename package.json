@@ -1,0 +1,55 @@
+{
+  "name": "npm-publish-guard",
+  "version": "1.0.0",
+  "description": "Scans exactly what `npm publish` would ship — for leaked secrets and dangerous files — before it happens.",
+  "author": "Rudra Sankar Ghosh Dastidar",
+  "bin": {
+    "npm-publish-guard": "bin/cli.js",
+    "publish-guard": "bin/cli.js"
+  },
+  "type": "commonjs",
+  "scripts": {
+    "prepublishOnly": "node bin/cli.js --allow-src"
+  },
+  "keywords": [
+    "npm",
+    "publish",
+    "security",
+    "secrets",
+    "secret-scanning",
+    "secret-detection",
+    "supply-chain",
+    "cli",
+    "devops",
+    "npm-publish",
+    "pre-publish",
+    "leaked-secrets",
+    "credentials",
+    "env-file",
+    "leak-prevention",
+    "source-map",
+    "publish-safety"
+  ],
+  "license": "MIT",
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "tar": "^7.4.3"
+  },
+  "files": [
+    "bin",
+    "src",
+    "README.md",
+    "LICENSE",
+    "CHANGELOG.md"
+  ],
+  "homepage": "https://github.com/rudrasankarg/npm-publish-guard#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/rudrasankarg/npm-publish-guard.git"
+  },
+  "bugs": {
+    "url": "https://github.com/rudrasankarg/npm-publish-guard/issues"
+  }
+}

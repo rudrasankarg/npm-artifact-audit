@@ -1,0 +1,10 @@
+# npm-publish-guard .npmignore
+# Only bin/, src/, README.md, LICENSE, CHANGELOG.md ship (via "files" in package.json)
+# This file is here as an extra safety net.
+
+node_modules/
+*.log
+.DS_Store
+Thumbs.db
+.env*
+*.tgz
