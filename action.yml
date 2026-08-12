@@ -1,5 +1,5 @@
-name: 'npm-publish-guard'
-description: 'Scan exactly what npm publish would ship — for leaked secrets, dangerous files, and packaging mistakes — before it happens.'
+name: 'npm-artifact-audit'
+description: 'Treat your npm package as a security artifact: audit execution surface, sizes, dependencies, and diff against the registry.'
 author: 'Rudra Sankar Ghosh Dastidar'
 
 branding:

@@ -33,7 +33,7 @@ const gha = {
 };
 
 // ── Run scan ──────────────────────────────────────────────────────────────────
-gha.group('npm-publish-guard scan');
+gha.group('npm-artifact-audit scan');
 console.log(`Scanning: ${targetDir}`);
 
 let packResult;
@@ -41,7 +41,7 @@ try {
   packResult = packAndUnpack(targetDir, false);
 } catch (err) {
   gha.endGroup();
-  gha.setFailed(`npm-publish-guard: ${err.message}`);
+  gha.setFailed(`npm-artifact-audit: ${err.message}`);
   process.exit(1);
 }
 
@@ -80,15 +80,15 @@ try {
   // ── Summary ───────────────────────────────────────────────────────────────────
   if (errors.length > 0) {
     gha.setFailed(
-      `npm-publish-guard: ${errors.length} error(s) found — publish would be blocked. ` +
-      `Run \`npx npm-publish-guard\` locally for details.`
+      `npm-artifact-audit: ${errors.length} error(s) found — publish would be blocked. ` +
+      `Run \`npx npm-artifact-audit\` locally for details.`
     );
   } else if (failOnWarn && warnings.length > 0) {
     gha.setFailed(
-      `npm-publish-guard: ${warnings.length} warning(s) found and --fail-on warnings is set.`
+      `npm-artifact-audit: ${warnings.length} warning(s) found and --fail-on warnings is set.`
     );
   } else if (warnings.length > 0) {
-    gha.notice(`${warnings.length} advisory warning(s). Run \`npx npm-publish-guard\` locally for details.`);
+    gha.notice(`${warnings.length} advisory warning(s). Run \`npx npm-artifact-audit\` locally for details.`);
   } else {
     gha.notice(`All clear — ${fileCount} files scanned, no issues found.`);
   }
