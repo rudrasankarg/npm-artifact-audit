@@ -28,11 +28,6 @@ npm install --save-dev npm-artifact-audit
   }
 }
 ```
-
-```bash
-npm install --save-dev npm-artifact-audit
-```
-
 ---
 
 ## Why this exists
