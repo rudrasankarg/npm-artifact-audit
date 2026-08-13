@@ -56,7 +56,7 @@ The result: `.env` files, private keys, source maps, and AI configs quietly end 
 | `npm audit` | Checks your **dependencies** for CVEs | Doesn't scan your own files |
 | Socket.dev | Behavioral analysis of **dependencies** | Different layer entirely |
 | `npm pack --dry-run` | Lists files, no analysis | You have to read the list yourself |
-| **npm-artifact-audit** | Audits exactly what `npm pack` produces | **The only tool in this specific security surface** |
+| **npm-artifact-audit** | Audits exactly what `npm pack` produces | **The first tool in this specific security surface** |
 
 The key difference: this tool uses `npm pack` itself (not a reimplementation) to determine what will ship, then scans those exact files. `.npmignore` / `.gitignore` / `files` field precedence is handled correctly because npm does it.
 
