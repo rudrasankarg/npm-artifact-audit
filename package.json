@@ -38,6 +38,7 @@
     "node": ">=18"
   },
   "dependencies": {
+    "npm-artifact-audit": "^1.2.3",
     "tar": "^7.4.3"
   },
   "files": [

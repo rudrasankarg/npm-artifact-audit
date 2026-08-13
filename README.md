@@ -17,6 +17,10 @@ npx npm-artifact-audit
 
 Or wire it so it **runs automatically before every publish**:
 
+```bash
+npm install --save-dev npm-artifact-audit
+```
+
 ```json
 {
   "scripts": {
