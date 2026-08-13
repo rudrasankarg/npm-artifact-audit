@@ -1,6 +1,6 @@
 {
   "name": "npm-artifact-audit",
-  "version": "1.2.3",
+  "version": "1.2.4",
   "description": "Treat your npm package as a security artifact: audit execution surface, sizes, dependencies, and diff against the registry before shipping.",
   "author": "Rudra Sankar Ghosh Dastidar",
   "main": "src/index.js",
@@ -38,7 +38,6 @@
     "node": ">=18"
   },
   "dependencies": {
-    "npm-artifact-audit": "^1.2.3",
     "tar": "^7.4.3"
   },
   "files": [
