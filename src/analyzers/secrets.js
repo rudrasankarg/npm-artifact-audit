@@ -73,8 +73,26 @@ const CONTENT_RULES = [
   // SendGrid
   { id: 'sendgrid-key', severity: 'error', label: 'SendGrid API key (SG.)', re: /SG\.[A-Za-z0-9_-]{22}\.[A-Za-z0-9_-]{43}/ },
 
-  // Cloudflare
-  { id: 'cloudflare-token', severity: 'error', label: 'Cloudflare API token', re: /[A-Za-z0-9_-]{40}(?=[^A-Za-z0-9_-]|$)/ },
+  // Cloudflare — require env-var context to avoid false positives on arbitrary 40-char strings
+  { id: 'cloudflare-token', severity: 'error', label: 'Cloudflare API token', re: /(?:CLOUDFLARE_API_TOKEN|CF_API_TOKEN)\s*[:=]\s*[A-Za-z0-9_-]{40}/ },
+
+  // Databricks
+  { id: 'databricks-token', severity: 'error', label: 'Databricks personal access token (dapi...)', re: /dapi[a-f0-9]{32}/ },
+
+  // Discord
+  { id: 'discord-token', severity: 'error', label: 'Discord bot token', re: /[MN][A-Za-z0-9_-]{23}\.[A-Za-z0-9_-]{6}\.[A-Za-z0-9_-]{27}/ },
+
+  // Linear
+  { id: 'linear-key', severity: 'error', label: 'Linear API key (lin_api_...)', re: /lin_api_[A-Za-z0-9]{40}/ },
+
+  // PlanetScale
+  { id: 'planetscale-token', severity: 'error', label: 'PlanetScale service token (pscale_tkn_...)', re: /pscale_tkn_[A-Za-z0-9_]{32,}/ },
+
+  // Google Gemini / Firebase / GCP — AIza prefix covers all three surfaces
+  { id: 'gemini-key', severity: 'error', label: 'Google Gemini / Firebase / GCP API key (AIza...)', re: /AIza[0-9A-Za-z_-]{35}/ },
+
+  // Firebase CI token
+  { id: 'firebase-token', severity: 'error', label: 'Firebase CI token (FIREBASE_TOKEN assignment)', re: /(?:FIREBASE_TOKEN)\s*[:=]\s*1\/[A-Za-z0-9_-]{43,}/ },
 
   // Generic assignments (warn only)
   { id: 'generic-secret', severity: 'warn', label: 'Generic API key / secret assignment', re: /(api[_-]?key|api[_-]?secret|secret[_-]?key|access[_-]?token|auth[_-]?token)\s*[:=]\s*["']?[A-Za-z0-9_\-]{20,}["']?/i },

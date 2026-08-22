@@ -100,6 +100,13 @@ function reportAudit({ findings, meta, compressedSize, fileCount, unpackedSize }
   const errors = findings.filter(f => f.severity === 'error');
   const warnings = findings.filter(f => f.severity === 'warn');
 
+  const summaryParts = [];
+  if (errors.length > 0) summaryParts.push(red(`${errors.length} error${errors.length === 1 ? '' : 's'}`));
+  if (warnings.length > 0) summaryParts.push(yellow(`${warnings.length} warning${warnings.length === 1 ? '' : 's'}`));
+  if (summaryParts.length === 0) summaryParts.push(green('no issues'));
+  console.log(`Summary:  ${summaryParts.join(', ')}`);
+  console.log('');
+
   if (errors.length > 0) {
     console.log(`${red(bold('Result: FAIL'))}`);
     return false;

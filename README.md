@@ -110,13 +110,18 @@ npx npm-artifact-audit reproduce
 | `source-map` | `*.map` — exposes full unminified source |
 | `git-dir` | `.git/`, `.svn/` directories |
 | `claude-settings` | `.claude/settings.local.json` |
+| `claude-settings-project` | `.claude/settings.json` — Claude Code project settings |
 | `cursor-settings` | `.cursor/settings.json` |
+| `windsurf-settings` | `.windsurf/settings.json` — Windsurf AI editor config |
 | `google-credentials` | `credentials.json` |
 | `google-service-account` | `service-account*.json` |
 | `local-db` | `*.sqlite`, `*.db` |
 | `shell-history` | `.bash_history`, `.zsh_history` |
 | `netrc` | `.netrc` |
 | `docker-config` | `.docker/config.json` |
+| `terraform-vars` | `*.tfvars`, `*.tfvars.json` — Terraform variable files |
+| `k8s-secret` | `*.secret.yaml`, `*.secret.yml` — Kubernetes secret manifests |
+| `pypirc` | `.pypirc` — PyPI auth token / credentials |
 | `embedded-binary-magic` | ELF, PE, Mach-O native executable magic headers |
 | `embedded-binary-ext` | `.exe`, `.dll`, `.so`, `.dylib`, `.wasm` |
 | `large-file-extreme` | Any file over 20MB |
@@ -144,7 +149,13 @@ npx npm-artifact-audit reproduce
 | `doppler-token` | `dp.st.` Doppler service tokens |
 | `twilio-token` | `SK[a-f0-9]{32}` Twilio API key |
 | `sendgrid-key` | `SG.` SendGrid API key |
-| `cloudflare-token` | 40-character Cloudflare API token |
+| `cloudflare-token` | `CLOUDFLARE_API_TOKEN=` / `CF_API_TOKEN=` 40-char token |
+| `databricks-token` | `dapi[a-f0-9]{32}` Databricks PAT |
+| `discord-token` | Discord bot token format |
+| `linear-key` | `lin_api_...` Linear API key |
+| `planetscale-token` | `pscale_tkn_...` PlanetScale service token |
+| `gemini-key` | `AIza...` Google Gemini / Firebase / GCP API key |
+| `firebase-token` | `FIREBASE_TOKEN=1/...` Firebase CI token |
 
 ### Warnings — advisory
 
@@ -155,6 +166,7 @@ npx npm-artifact-audit reproduce
 | `tooling-config` | `.eslintrc.*`, `jest.config.js`, `.babelrc`, etc. |
 | `log-file` | `*.log` files |
 | `shell-script-file` | `.sh`, `.bat`, `.cmd` scripts |
+| `cursorrules` | `.cursorrules` — may embed private project context |
 | `src-directory` | Raw `src/` (use `--allow-src` to suppress) |
 | `large-file` | Files between 5–20MB |
 | `generic-secret` | `api_key=`, `access_token=`, `secret_key=` patterns |
@@ -209,6 +221,8 @@ Exit codes: `0` = clean, `1` = errors found (or warnings with `--fail-on warning
 |---|---|
 | `--allow-src` | Don't warn about `src/` directory being included |
 | `--fail-on warnings` | Also exit 1 when warnings are found (strict mode) |
+| `--fix` | Auto-append `.npmignore` entries for every finding |
+| `--quiet`, `-q` | Suppress all output when the scan passes cleanly |
 | `--json` | Output results as JSON (for CI parsing) |
 | `--version`, `-v` | Show version |
 | `--help`, `-h` | Show help |

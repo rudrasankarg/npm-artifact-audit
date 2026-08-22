@@ -7,7 +7,41 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.3.0] — 2026-08-23
+
+### Added
+
+**New secret content patterns:**
+- **Databricks** — `dapi[a-f0-9]{32}` personal access tokens
+- **Discord** — Bot token format (`M/N` prefix + structured dots)
+- **Linear** — `lin_api_...` API keys
+- **PlanetScale** — `pscale_tkn_...` service tokens
+- **Google Gemini / Firebase / GCP** — `AIza...` API keys (covers all three surfaces)
+- **Firebase CI** — `FIREBASE_TOKEN=1/...` CI token assignments
+
+**New filename rules (errors):**
+- `.windsurf/settings.json` — Windsurf AI editor config (may contain tokens)
+- `.claude/settings.json` — Claude Code project settings (non-local variant)
+- `*.tfvars`, `*.tfvars.json` — Terraform variable files (often contain secrets)
+- `*.secret.yaml`, `*.secret.yml` — Kubernetes secret manifests
+- `.pypirc` — PyPI auth token / credentials file
+
+**New filename rules (warnings):**
+- `.cursorrules` — may embed private project context or internal instructions
+
+### Fixed
+- **`--fix` flag** — now actually implemented; auto-appends patterns to `.npmignore` for every finding that references a specific file path. Extracts the suggested glob from the fix hint when available, otherwise falls back to the raw file path.
+- **`--quiet` / `-q` flag** — now actually implemented; suppresses all output when the scan passes cleanly (no errors, no warnings). Useful in `prepublishOnly` scripts.
+- **`--version` / `-v` flag** — now actually implemented; prints the package version from `package.json` and exits.
+- **Cloudflare regex** — tightened from a bare 40-character pattern (high false-positive rate) to require `CLOUDFLARE_API_TOKEN` or `CF_API_TOKEN` context.
+
+### Changed
+- Terminal reporter now prints a **Summary line** (`N errors, N warnings`) before the final `Result:` banner.
+
+---
+
 ## [1.1.0] — 2026-08-12
+
 
 ### Added
 - **GitHub Action** — use as `rudrasankarg/npm-publish-guard@v1` in CI. Emits inline PR annotations.

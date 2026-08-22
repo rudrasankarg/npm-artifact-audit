@@ -111,6 +111,15 @@ function runReproduce() {
   }
 }
 
+function printVersion() {
+  let version = 'unknown';
+  try {
+    const pkgPath = path.join(__dirname, '..', '..', 'package.json');
+    version = JSON.parse(fs.readFileSync(pkgPath, 'utf8')).version;
+  } catch {}
+  console.log(version);
+}
+
 function printHelp() {
   console.log(`
 npm-artifact-audit — treat the npm tarball as a security artifact
@@ -128,8 +137,58 @@ Options:
   --json                 Output results as JSON
   --allow-src            Don't warn about raw src/ directory
   --fail-on warnings     Treat warnings as errors
+  --quiet, -q            Suppress output when scan passes cleanly
+  --fix                  Auto-append .npmignore entries for every finding
+  --version, -v          Show version
   --help, -h             Show help message
 `);
+}
+
+/**
+ * Applies --fix: appends missing .npmignore entries for path-based findings.
+ *
+ * @param {object[]} findings
+ * @param {string} projectDir
+ */
+function applyFix(findings, projectDir) {
+  const npmignorePath = path.join(projectDir, '.npmignore');
+
+  // Collect unique globs/paths from findings that have a real file path
+  const toAdd = new Set();
+  for (const f of findings) {
+    if (!f.path || f.path === '(whole package)' || f.path === 'package.json') continue;
+    // Use the fix hint to extract the pattern if it mentions .npmignore, else use the path directly
+    const hintMatch = f.fix && f.fix.match(/Add '([^']+)' to \.npmignore/);
+    if (hintMatch) {
+      toAdd.add(hintMatch[1]);
+    } else {
+      toAdd.add(f.path);
+    }
+  }
+
+  if (toAdd.size === 0) {
+    console.log('\n--fix: No file-based findings to fix.');
+    return;
+  }
+
+  // Read existing .npmignore (if any)
+  let existing = '';
+  try {
+    existing = fs.readFileSync(npmignorePath, 'utf8');
+  } catch {}
+  const existingLines = new Set(existing.split('\n').map(l => l.trim()).filter(Boolean));
+
+  const newEntries = [...toAdd].filter(e => !existingLines.has(e));
+  if (newEntries.length === 0) {
+    console.log('\n--fix: All suggested patterns are already in .npmignore.');
+    return;
+  }
+
+  const append = (existing.endsWith('\n') || existing === '' ? '' : '\n') + newEntries.join('\n') + '\n';
+  fs.appendFileSync(npmignorePath, append, 'utf8');
+
+  console.log(`\n--fix: Appended ${newEntries.length} entr${newEntries.length === 1 ? 'y' : 'ies'} to .npmignore:`);
+  newEntries.forEach(e => console.log(`  + ${e}`));
 }
 
 function main() {
@@ -142,9 +201,16 @@ function main() {
     process.exit(0);
   }
 
+  if (flags.includes('--version') || flags.includes('-v')) {
+    printVersion();
+    process.exit(0);
+  }
+
   const useJson = flags.includes('--json');
   const allowSrc = flags.includes('--allow-src');
   const failOnWarnings = flags.includes('--fail-on') && args[args.indexOf('--fail-on') + 1] === 'warnings';
+  const quiet = flags.includes('--quiet') || flags.includes('-q');
+  const fix = flags.includes('--fix');
 
   const projectDir = process.cwd();
 
@@ -227,10 +293,20 @@ function main() {
       if (useJson) {
         reportAuditJson(auditData);
       } else {
-        const passed = reportAudit(auditData);
         const hasErrors = findings.some(f => f.severity === 'error');
         const hasWarnings = findings.some(f => f.severity === 'warn');
         const exitCode = hasErrors || (failOnWarnings && hasWarnings) ? 1 : 0;
+
+        if (quiet && exitCode === 0) {
+          // Silent pass — no output
+        } else {
+          reportAudit(auditData);
+        }
+
+        if (fix) {
+          applyFix(findings, projectDir);
+        }
+
         process.exit(exitCode);
       }
     } finally {
