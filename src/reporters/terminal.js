@@ -40,22 +40,60 @@ function reportAudit({ findings, meta, compressedSize, fileCount, unpackedSize }
   
   const secrets = findings.filter(f => f.analyzer === 'secrets');
   const binaries = findings.filter(f => f.analyzer === 'binaries' && f.severity === 'error');
-  const scripts = findings.filter(f => f.analyzer === 'scripts' && f.severity === 'error');
 
-  if (secrets.length === 0) console.log(`${green('✓')} No credentials detected`);
-  else secrets.forEach(s => console.log(`${red('✖')} ${bold(s.path)}:${s.line} — ${s.label}`));
+  if (secrets.length === 0) console.log(`${green('\u2713')} No credentials detected`);
+  else secrets.forEach(s => console.log(`${red('\u2716')} ${bold(s.path)}:${s.line} \u2014 ${s.label}`));
 
   const privateKeys = findings.filter(f => f.id === 'private-key-file');
-  if (privateKeys.length === 0) console.log(`${green('✓')} No private keys detected`);
+  if (privateKeys.length === 0) console.log(`${green('\u2713')} No private keys detected`);
 
-  if (scripts.length === 0) console.log(`${green('✓')} No suspicious scripts detected`);
-  else scripts.forEach(s => console.log(`${red('✖')} Suspicious script run: ${s.label}`));
-
-  if (binaries.length === 0) console.log(`${green('✓')} No executable binaries detected`);
-  else binaries.forEach(b => console.log(`${red('✖')} Binary detected: ${b.path}`));
+  if (binaries.length === 0) console.log(`${green('\u2713')} No executable binaries detected`);
+  else binaries.forEach(b => console.log(`${red('\u2716')} Binary detected: ${b.path}`));
   console.log('');
 
-  // 2. Packaging
+  // 2. Install Scripts
+  console.log(bold('Install Scripts'));
+  console.log(HR);
+
+  const hookSurface = findings.filter(f => f.analyzer === 'scripts' && f.type === 'execution-surface' && f.severity === 'info');
+  const behaviorFindings = findings.filter(f => f.analyzer === 'installscript');
+
+  if (hookSurface.length === 0) {
+    console.log(`${green('\u2713')} No install scripts`);
+  } else {
+    // Group behavioral findings by hook
+    const byHook = {};
+    for (const hf of hookSurface) {
+      byHook[hf.hook] = { surface: hf, behaviors: [] };
+    }
+    for (const bf of behaviorFindings) {
+      if (byHook[bf.hook]) byHook[bf.hook].behaviors.push(bf);
+    }
+
+    for (const [hook, { surface, behaviors }] of Object.entries(byHook)) {
+      const icon = behaviors.some(b => b.severity === 'error') ? red('\u2716')
+                 : behaviors.some(b => b.severity === 'warn')  ? yellow('\u26a0')
+                 : green('\u2713');
+      const target = surface.localFile ? dim(surface.localFile) : dim('(inline command)');
+      console.log(`${icon}  ${bold(hook)}: ${target}`);
+
+      if (behaviors.length === 0) {
+        console.log(`   ${dim('No suspicious patterns detected in script')}`);
+      } else {
+        for (const b of behaviors) {
+          const sev = b.severity === 'error' ? red('ERR ') : yellow('WARN');
+          console.log(`   ${sev}  ${b.label}`);
+          for (const ev of b.evidence) {
+            const loc = ev.line ? ` (line ${ev.line})` : '';
+            console.log(`         \u2192 ${dim(ev.snippet + loc)}`);
+          }
+        }
+      }
+    }
+  }
+  console.log('');
+
+  // 3. Packaging
   console.log(bold('Packaging'));
   console.log(HR);
   
@@ -70,7 +108,7 @@ function reportAudit({ findings, meta, compressedSize, fileCount, unpackedSize }
   }
   console.log('');
 
-  // 3. Dependency Surface
+  // 4. Dependency Surface
   console.log(bold('Dependency surface'));
   console.log(HR);
   
@@ -88,7 +126,7 @@ function reportAudit({ findings, meta, compressedSize, fileCount, unpackedSize }
   }
   console.log('');
 
-  // 4. Artifact Specs
+  // 5. Artifact Specs
   console.log(bold('Artifact'));
   console.log(HR);
   console.log(`Files:       ${fileCount}`);

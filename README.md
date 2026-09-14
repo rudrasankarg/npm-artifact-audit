@@ -32,18 +32,25 @@ npm install --save-dev npm-artifact-audit
 
 ## Why this exists
 
-`npm publish` doesn't publish your source folder — it builds a tarball based on three rules that interact in surprising ways:
+Most security tooling operates on your source code or git history. But `npm publish` doesn't publish your source folder — it builds a **tarball** based on three rules that interact in ways generic scanners don't understand:
 
 - If **`.npmignore`** exists, your **`.gitignore` is ignored entirely**. Files you excluded from git can still ship to npm.
 - The **`files`** field in `package.json`, if present, overrides both ignore files.
-- The interaction between these three is npm-specific logic that generic scanners don't know about.
+- The interaction between these three is npm-specific logic that no git scanner can replicate.
 
-The result: `.env` files, private keys, source maps, and AI configs quietly end up in public packages. This isn't hypothetical:
+`npm-artifact-audit` audits the **exact artifact** that `npm pack` would produce — not your source tree, not your git history. It runs analyzers across that artifact:
 
-- **Anthropic leaked their Claude Code source code to npm twice** via accidentally included `.map` files — a 59.8MB source map containing ~512,000 lines of TypeScript. The second time was March 31, 2026, one year after the first incident. This tool would have caught it both times.
-- Thousands of real packages have leaked API keys, `.env` files, and SSH keys this way.
+- **File content** — credential patterns, private keys, AI editor configs, database files
+- **Install scripts** — static behavioral analysis of what postinstall scripts actually do (network access, env reads, dynamic eval, obfuscated code)
+- **File names** — `.env`, `.npmrc`, source maps, shell scripts, IDE configs
+- **Dependencies** — production dependency count, packages with install hooks
+- **Size** — oversized files and packages that suggest accidental inclusion
+- **Registry diff** — what changed since the last published version
 
-`npm-artifact-audit` automates the check you'd otherwise do manually: run `npm pack`, read the file list, and audit the resulting security surface. It blocks the publish if it finds a problem.
+This matters because the packaging surface is where real leaks happen:
+
+- **Anthropic leaked their Claude Code source code to npm twice** via accidentally included `.map` files — a 59.8 MB source map containing ~512,000 lines of TypeScript. The second time was March 31, 2026, one year after the first. This tool would have caught it both times.
+- Thousands of real packages have leaked API keys, `.env` files, and SSH keys because `.npmignore` and `.gitignore` interact unexpectedly.
 
 ---
 
@@ -231,6 +238,34 @@ Exit codes: `0` = clean, `1` = errors found (or warnings with `--fail-on warning
 | `--json` | Output results as JSON (for CI parsing) |
 | `--version`, `-v` | Show version |
 | `--help`, `-h` | Show help |
+
+---
+
+## Configuration
+
+Rules can be suppressed without disabling the tool. Add an `auditConfig` key to `package.json`:
+
+```json
+{
+  "auditConfig": {
+    "ignoreRules": ["test-files", "source-map", "wasm-file"],
+    "allowSrc": true,
+    "failOnWarnings": false,
+    "quiet": false
+  }
+}
+```
+
+Or use a standalone `.npmauditrc.json` file in the project root:
+
+```json
+{
+  "ignoreRules": ["test-files"],
+  "allowSrc": true
+}
+```
+
+**CLI flags always take precedence** over the config file. Available rule IDs for `ignoreRules` match the `id` field shown in `--json` output — for example `"test-files"`, `"source-map"`, `"wasm-file"`, `"src-directory"`, `"large-file"`.
 
 ---
 

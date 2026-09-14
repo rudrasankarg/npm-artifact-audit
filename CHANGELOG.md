@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.5.0] — 2026-09-14
+
+### Added
+- **Per-rule configuration & noise suppression:** You can now suppress specific noisy rules without disabling the entire tool. Added support for `package.json#auditConfig` and standalone `.npmauditrc.json` files.
+- **Install Script Behavioral Analysis:** Entirely replaced the old pattern scanner with a structured static behavioral analyzer for install hooks. It now categorizes install script behavior into `network-access`, `env-access`, `child-process`, `dynamic-eval`, `fs-home-write`, `data-exfil-pattern`, `obfuscated-code`, and `dynamic-require`, extracting the exact line of code and severity for each.
+- **Install Scripts terminal section:** Added a dedicated "Install Scripts" section to the terminal output that visualizes behavioral findings grouped by hook.
+
+### Changed
+- **README positioning:** Rewrote the intro and positioning to emphasize "publish-surface analysis" rather than just "secret scanning," providing more concrete context on why this differs from git-history scanners.
+- Downgraded the base "install hook exists" finding to severity `info` (advisory). The actual behavioral findings (e.g. `network-access`) now carry the `error` or `warn` severity.
+
+---
+
 ## [1.4.0] — 2026-09-14
 
 ### Changed

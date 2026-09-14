@@ -30,10 +30,10 @@ function walkFiles(dir) {
  * Runs all modular security and packaging analyzers on the unpacked package.
  * 
  * @param {string} extractDir - The unpacked package directory
- * @param {object} context - { projectDir, manifest, allowSrc }
+ * @param {object} context - { projectDir, manifest, allowSrc, ignoreRules }
  * @returns {object[]} Combined findings from all analyzers
  */
-function inspectPackage(extractDir, { projectDir, manifest, allowSrc = false } = {}) {
+function inspectPackage(extractDir, { projectDir, manifest, allowSrc = false, ignoreRules = [] } = {}) {
   const absoluteFiles = walkFiles(extractDir);
   const relativeFiles = absoluteFiles.map(abs => path.relative(extractDir, abs).replace(/\\/g, '/'));
 
@@ -51,6 +51,12 @@ function inspectPackage(extractDir, { projectDir, manifest, allowSrc = false } =
   findings.push(...binariesAnalyzer.analyze(relativeFiles, context));
   findings.push(...dependenciesAnalyzer.analyze(relativeFiles, context));
   findings.push(...sizeAnalyzer.analyze(relativeFiles, context));
+
+  // Apply ignoreRules: filter out any finding whose id is in the suppression list
+  if (ignoreRules.length > 0) {
+    const ignoreSet = new Set(ignoreRules);
+    return findings.filter(f => !f.id || !ignoreSet.has(f.id));
+  }
 
   return findings;
 }

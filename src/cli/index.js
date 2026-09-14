@@ -12,6 +12,7 @@ const { explainInclusion } = require('../analyzers/files');
 const { diffArtifact } = require('../diff/artifact-diff');
 const { reportAudit, reportDiff } = require('../reporters/terminal');
 const { reportAuditJson, reportDiffJson } = require('../reporters/json');
+const { loadConfig } = require('../config');
 
 function getSha256(filePath) {
   const content = fs.readFileSync(filePath);
@@ -218,12 +219,18 @@ function main() {
   }
 
   const useJson = flags.includes('--json');
-  const allowSrc = flags.includes('--allow-src');
-  const failOnWarnings = flags.includes('--fail-on') && args[args.indexOf('--fail-on') + 1] === 'warnings';
-  const quiet = flags.includes('--quiet') || flags.includes('-q');
   const fix = flags.includes('--fix');
 
   const projectDir = process.cwd();
+
+  // Load config file, then override with any explicitly-set CLI flags
+  const cliOverrides = {};
+  if (flags.includes('--allow-src'))    cliOverrides.allowSrc = true;
+  if (flags.includes('--fail-on') && args[args.indexOf('--fail-on') + 1] === 'warnings') cliOverrides.failOnWarnings = true;
+  if (flags.includes('--quiet') || flags.includes('-q')) cliOverrides.quiet = true;
+
+  const config = loadConfig(projectDir, cliOverrides);
+  const { allowSrc, failOnWarnings, quiet, ignoreRules } = config;
 
   if (command === 'why') {
     const file = args[1];
@@ -285,7 +292,8 @@ function main() {
       const findings = inspectPackage(localResult.extractDir, {
         projectDir,
         manifest: localManifest,
-        allowSrc
+        allowSrc,
+        ignoreRules,
       });
 
       // Calculate sizes

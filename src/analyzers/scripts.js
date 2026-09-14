@@ -2,15 +2,9 @@
 
 const fs = require('fs');
 const path = require('path');
+const { analyzeContent, analyzeInlineCommand } = require('./installscript');
 
 const HOOKS = ['preinstall', 'postinstall', 'install', 'prepare'];
-
-const RISKY_PATTERNS = [
-  { name: 'spawns child_process', re: /(child_process|spawn|exec|fork|execSync|spawnSync)/ },
-  { name: 'accesses environment variables', re: /process\.env/ },
-  { name: 'performs network request', re: /(http|https|fetch|axios|curl|wget|urllib|needle)/ },
-  { name: 'writes or deletes files', re: /(fs\.(writeFile|appendFile|mkdir|rm|unlink|writeFileSync|appendFileSync|mkdirSync|rmSync|unlinkSync))/ },
-];
 
 /**
  * Resolves local file paths from a shell script execution string.
@@ -38,6 +32,11 @@ function extractLocalFile(cmd, files) {
 /**
  * Analyzes the lifecycle scripts in the package manifest for risky execution surfaces.
  * 
+ * For each hook:
+ *   - If the hook resolves to a local file: runs full behavioral analysis on the file content
+ *   - If the hook is an inline shell command: runs inline command analysis
+ *   - Either way: always emits an advisory "execution-surface" finding so the hook is visible
+ *
  * @param {string[]} files - Package-relative file paths.
  * @param {object} context - { extractDir: string, manifest: object }
  * @returns {object[]} Findings array.
@@ -47,51 +46,49 @@ function analyze(files, { extractDir, manifest }) {
   const scripts = manifest.scripts || {};
 
   for (const hook of HOOKS) {
-    if (scripts[hook]) {
-      const cmd = scripts[hook];
-      const localFile = extractLocalFile(cmd, files);
+    if (!scripts[hook]) continue;
 
-      const details = [];
-      let riskLevel = 'LOW';
+    const cmd = scripts[hook];
+    const localFile = extractLocalFile(cmd, files);
 
-      if (localFile) {
-        const absPath = path.join(extractDir, localFile);
-        try {
-          const content = fs.readFileSync(absPath, 'utf8');
-          for (const pattern of RISKY_PATTERNS) {
-            if (pattern.re.test(content)) {
-              details.push(pattern.name);
-            }
-          }
-        } catch {}
-      } else {
-        // Direct command checks
-        if (cmd.includes('curl') || cmd.includes('wget') || cmd.includes('fetch')) {
-          details.push('performs network request');
-        }
-        if (cmd.includes('node -e') || cmd.includes('eval(')) {
-          details.push('evaluates dynamic code');
-        }
+    // Always emit an advisory "hook exists" finding so it's visible in the audit.
+    // This is NOT an error — it surfaces the hook for review.
+    findings.push({
+      analyzer: 'scripts',
+      type: 'execution-surface',
+      severity: 'info',
+      id: `execution-surface-${hook}`,
+      path: 'package.json',
+      hook,
+      label: `Lifecycle hook "${hook}": ${cmd}`,
+      localFile: localFile || null,
+      fix: 'Review the script content. Native module compilation (node-gyp) is expected; arbitrary network or eval patterns are not.',
+    });
+
+    if (localFile) {
+      // Deep behavioral analysis of the resolved file
+      const absPath = path.join(extractDir, localFile);
+      try {
+        const content = fs.readFileSync(absPath, 'utf8');
+        const behaviorFindings = analyzeContent(content, localFile, hook);
+        findings.push(...behaviorFindings);
+      } catch {
+        // File unreadable — note it but don't crash
+        findings.push({
+          analyzer: 'scripts',
+          type: 'execution-surface',
+          severity: 'warn',
+          id: `execution-surface-unreadable-${hook}`,
+          path: localFile,
+          hook,
+          label: `Lifecycle hook "${hook}" references a file that could not be read: ${localFile}`,
+          fix: 'Verify the file exists and is readable in the published package.',
+        });
       }
-
-      if (details.length >= 3) {
-        riskLevel = 'HIGH';
-      } else if (details.length > 0) {
-        riskLevel = 'MEDIUM';
-      }
-
-      findings.push({
-        analyzer: 'scripts',
-        type: 'execution-surface',
-        severity: riskLevel === 'HIGH' ? 'error' : 'warn',
-        id: `execution-surface-${hook}`,
-        path: 'package.json',
-        label: `Execution surface detected in lifecycle hook "${hook}": "${cmd}"`,
-        riskLevel,
-        details,
-        localFile,
-        fix: 'Avoid runtime hooks if possible, or verify the safety of this installer script.',
-      });
+    } else {
+      // Inline command analysis
+      const inlineFindings = analyzeInlineCommand(cmd, hook);
+      findings.push(...inlineFindings);
     }
   }
 
