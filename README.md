@@ -62,9 +62,14 @@ This matters because the packaging surface is where real leaks happen:
 | `npm audit` | Checks your **dependencies** for CVEs | Doesn't scan your own files |
 | Socket.dev | Behavioral analysis of **dependencies** | Different layer entirely |
 | `npm pack --dry-run` | Lists files, no analysis | You have to read the list yourself |
-| **npm-artifact-audit** | Audits exactly what `npm pack` produces | **Scoped to the publish surface specifically — the exact artifact that leaves your machine** |
+| **npm-artifact-audit** `audit` | Audits exactly what `npm pack` produces — static analysis | **Scoped to the publish surface specifically — the exact artifact that leaves your machine** |
+| **npm-artifact-audit** `runtime` | Executes install scripts in a Node.js sandbox — dynamic analysis | **What does this package actually do at install time?** |
 
 The key difference: this tool uses `npm pack` itself (not a reimplementation) to determine what will ship, then scans those exact files. `.npmignore` / `.gitignore` / `files` field precedence is handled correctly because npm does it.
+
+The two commands are complementary layers:
+- `audit` → *"What's inside the package?"* (static)
+- `runtime` → *"What happens when this package runs?"* (dynamic)
 
 ---
 
@@ -203,6 +208,8 @@ npx npm-artifact-audit runtime suspicious-package@2.4.1
 
 ## Example Output
 
+### `audit` (static)
+
 ```
 npm-artifact-audit
 
@@ -214,21 +221,25 @@ Security
 ─────────────────────────────────────────────
 ✓ No credentials detected
 ✓ No private keys detected
-✓ No suspicious scripts detected
 ✓ No executable binaries detected
+
+Install Scripts
+─────────────────────────────────────────────
+⚠  postinstall: scripts/install.js
+   WARN  Install script reads environment variables
+         → process.env.HOME (line 4)
+   WARN  Install script spawns child processes
+         → execSync( (line 9)
 
 Packaging
 ─────────────────────────────────────────────
 ⚠  dist/index.js.map
-   Source map exposes source code
-
-⚠  test/fixtures/large-response.json
-   184 KB test fixture included in package
+   Source map — exposes unminified source and internal paths
 
 Dependency surface
 ─────────────────────────────────────────────
-⚠  14 production dependencies
-⚠  3 packages contain install scripts
+✓  3 production dependencies listed
+✓  No production dependencies with install scripts
 
 Artifact
 ─────────────────────────────────────────────
@@ -237,6 +248,29 @@ Compressed:  847 KB
 Unpacked:    2.4 MB
 
 Result: PASS WITH WARNINGS
+```
+
+### `runtime` (dynamic)
+
+```
+npm-runtime-audit
+
+Package:  suspicious-tool@2.4.1
+Status:   Executed: postinstall
+
+BEHAVIOR
+─────────────────────────────────────────────
+HIGH   Network access
+       → http://198.51.100.42/collect
+
+MEDIUM Environment access
+       → process.env.NPM_TOKEN
+       → process.env.HOME
+
+MEDIUM Child process execution
+       → /bin/sh -c ...
+
+Result: REVIEW REQUIRED
 ```
 
 Exit codes: `0` = clean, `1` = errors found (or warnings with `--fail-on warnings`), `2` = tool error.
@@ -371,7 +405,9 @@ publish:
 
 ## How it works
 
-Internally runs `npm pack --json` to get the exact file set npm would publish — using npm's own resolution logic, not a reimplementation. That means `.npmignore` vs `.gitignore` vs `files` field precedence is handled correctly. Each file is then checked against filename rules, execution hooks, dependency scripts, file sizes, and scanned for secret-shaped content patterns. Temp files are cleaned up automatically.
+**`audit` (static):** Runs `npm pack --json` to get the exact file set npm would publish — using npm's own resolution logic, not a reimplementation. That means `.npmignore` vs `.gitignore` vs `files` field precedence is handled correctly. Each file is then checked against filename rules, install hooks, dependency scripts, file sizes, and scanned for secret-shaped content patterns. Install scripts are statically analyzed for behavioral patterns (network, eval, env access). Temp files are cleaned up automatically.
+
+**`runtime` (dynamic):** Packs the target package via `npm pack`, extracts it, and executes its lifecycle scripts (`preinstall`, `install`, `postinstall`) inside a Node.js instrumentation sandbox. The sandbox monkey-patches `http`, `https`, `child_process`, `fs`, and `process.env` to intercept and log actual runtime behavior. The results are formatted into a severity-ranked behavioral report. Note: this executes the package's code on your machine — it is best-effort instrumentation, not full hypervisor isolation.
 
 ---
 
