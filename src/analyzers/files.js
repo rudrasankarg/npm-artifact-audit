@@ -9,7 +9,7 @@ const FILENAME_RULES = [
   { id: 'aws-credentials', severity: 'error', label: '.aws/credentials — AWS credentials file', fix: "Add '.aws/' to .npmignore.", re: /(^|\/)\.aws\/credentials$/i },
   { id: 'ssh-key', severity: 'error', label: 'SSH private key', fix: 'Remove this file from your project directory or add it to .npmignore.', re: /(^|\/)id_(rsa|dsa|ecdsa|ed25519)(\.pub)?$/i },
   { id: 'private-key-file', severity: 'error', label: 'Private key / certificate file (.pem, .key, .pfx, .p12)', fix: 'Remove this file from your project directory or add it to .npmignore.', re: /\.(pem|key|pfx|p12|crt|cer)$/i },
-  { id: 'source-map', severity: 'error', label: 'Source map — exposes your full unminified source code', fix: "Add '*.map' to .npmignore, or set sourceMap: false in your bundler config.", re: /\.map$/i },
+  { id: 'source-map', severity: 'warn', label: 'Source map (.map) — exposes unminified source code and internal paths. Normal for open-source packages; a concern for proprietary code.', fix: "If you want to keep source private, add '*.map' to .npmignore or set sourceMap: false in your bundler config.", re: /\.map$/i },
   { id: 'git-dir', severity: 'error', label: '.git or .svn directory — version control internals', fix: "Add '.git/' to .npmignore.", re: /(^|\/)\.git\//i },
   { id: 'claude-settings', severity: 'error', label: '.claude/settings.local.json — Claude Code config, may contain tokens', fix: "Add '.claude/' to .npmignore.", re: /(^|\/)\.claude\/settings\.local\.json$/i },
   { id: 'claude-settings-project', severity: 'error', label: '.claude/settings.json — Claude Code project settings', fix: "Add '.claude/' to .npmignore.", re: /(^|\/)\.claude\/settings\.json$/i },

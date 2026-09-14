@@ -55,7 +55,7 @@ The result: `.env` files, private keys, source maps, and AI configs quietly end 
 | `npm audit` | Checks your **dependencies** for CVEs | Doesn't scan your own files |
 | Socket.dev | Behavioral analysis of **dependencies** | Different layer entirely |
 | `npm pack --dry-run` | Lists files, no analysis | You have to read the list yourself |
-| **npm-artifact-audit** | Audits exactly what `npm pack` produces | **The first tool in this specific security surface** |
+| **npm-artifact-audit** | Audits exactly what `npm pack` produces | **Scoped to the publish surface specifically — the exact artifact that leaves your machine** |
 
 The key difference: this tool uses `npm pack` itself (not a reimplementation) to determine what will ship, then scans those exact files. `.npmignore` / `.gitignore` / `files` field precedence is handled correctly because npm does it.
 
@@ -88,11 +88,15 @@ npx npm-artifact-audit why dist/debug.log
 Exposes if it came from a `files` array whitelist, default npm includes, or missing ignore patterns, and suggests a fix.
 
 ### 4. `npx npm-artifact-audit reproduce`
-Builds the package twice and compares the resulting artifacts to verify **reproducibility**:
+Runs `npm pack` twice and compares the resulting tarballs byte-for-byte:
 
 ```bash
 npx npm-artifact-audit reproduce
 ```
+
+Useful for detecting nondeterministic build pipelines — but note the limits:
+- **Identical artifacts** do not prove the build is trustworthy or free of sensitive content.
+- **Differing artifacts** do not automatically indicate a security problem — timestamps, random IDs, and nondeterministic bundlers are common causes.
 
 ---
 
@@ -107,7 +111,6 @@ npx npm-artifact-audit reproduce
 | `aws-credentials` | `.aws/credentials` |
 | `ssh-key` | `id_rsa`, `id_ed25519`, etc. |
 | `private-key-file` | `*.pem`, `*.key`, `*.pfx`, `*.p12` |
-| `source-map` | `*.map` — exposes full unminified source |
 | `git-dir` | `.git/`, `.svn/` directories |
 | `claude-settings` | `.claude/settings.local.json` |
 | `claude-settings-project` | `.claude/settings.json` — Claude Code project settings |
@@ -123,9 +126,8 @@ npx npm-artifact-audit reproduce
 | `k8s-secret` | `*.secret.yaml`, `*.secret.yml` — Kubernetes secret manifests |
 | `pypirc` | `.pypirc` — PyPI auth token / credentials |
 | `embedded-binary-magic` | ELF, PE, Mach-O native executable magic headers |
-| `embedded-binary-ext` | `.exe`, `.dll`, `.so`, `.dylib`, `.wasm` |
-| `large-file-extreme` | Any file over 20MB |
-| `package-too-large` | Total package over 20MB |
+| `embedded-binary-ext` | `.exe`, `.dll`, `.so`, `.dylib` — native binaries |
+| `large-file-extreme` | Any single file over 20MB |
 
 **Secret content patterns (error):**
 
@@ -161,6 +163,7 @@ npx npm-artifact-audit reproduce
 
 | Rule | What's caught |
 |---|---|
+| `source-map` | `*.map` — exposes unminified source and internal paths. Normal for OSS; a concern for proprietary code. |
 | `test-files` | `.test.ts`, `.spec.js`, `__tests__/`, `test/` |
 | `ide-files` | `.vscode/`, `.idea/`, `.cursor/` |
 | `tooling-config` | `.eslintrc.*`, `jest.config.js`, `.babelrc`, etc. |
@@ -169,6 +172,8 @@ npx npm-artifact-audit reproduce
 | `cursorrules` | `.cursorrules` — may embed private project context |
 | `src-directory` | Raw `src/` (use `--allow-src` to suppress) |
 | `large-file` | Files between 5–20MB |
+| `package-too-large` | Total package over 20MB — review whether all files are needed |
+| `wasm-file` | `*.wasm` — WebAssembly is valid in many packages; confirm it is intentional |
 | `generic-secret` | `api_key=`, `access_token=`, `secret_key=` patterns |
 
 ---

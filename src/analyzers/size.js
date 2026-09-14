@@ -60,12 +60,12 @@ function analyze(files, { extractDir }) {
     findings.push({
       analyzer: 'size',
       type: 'package-size',
-      severity: 'error',
+      severity: 'warn',
       id: 'package-too-large',
       path: '(whole package)',
       sizeBytes: totalBytes,
-      label: `Total package unpacked size is very large (${(totalBytes / 1024 / 1024).toFixed(2)} MB)`,
-      fix: 'Use the "files" field in package.json to exclude non-essential files.',
+      label: `Total package unpacked size is very large (${(totalBytes / 1024 / 1024).toFixed(2)} MB) — review whether all files are needed by consumers`,
+      fix: 'Use the "files" field in package.json or .npmignore to exclude non-essential files such as tests, fixtures, and build tooling.',
     });
   } else {
     findings.push({

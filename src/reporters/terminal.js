@@ -164,9 +164,15 @@ function reportDiff(diff) {
   }
 
   if (diff.addedExecutionSurface.length > 0) {
-    console.log(`${yellow(bold('⚠ NEW EXECUTION SURFACE'))}`);
+    console.log(`${yellow(bold('\u26a0 INSTALL HOOK CHANGES'))}`);
+    console.log(dim('  Install scripts changed since the previous version. Review whether these are expected'));
+    console.log(dim('  and safe — a hook is not automatically a threat, but changed hooks warrant inspection.'));
     diff.addedExecutionSurface.forEach(s => {
-      console.log(`  ${bold(s.hook)}: ${s.command}`);
+      if (s.modified) {
+        console.log(`  ${bold(s.hook)} (modified): ${s.command}`);
+      } else {
+        console.log(`  ${bold(s.hook)} (new): ${s.command}`);
+      }
     });
     console.log('');
   }

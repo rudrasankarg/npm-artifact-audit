@@ -5,7 +5,7 @@ const path = require('path');
 
 const BINARY_EXTS = new Set([
   '.exe', '.dll', '.so', '.dylib', '.bin', '.node',
-  '.sh', '.bat', '.cmd', '.elf', '.wasm'
+  '.sh', '.bat', '.cmd', '.elf'
 ]);
 
 /**
@@ -76,7 +76,21 @@ function analyze(files, { extractDir }) {
       continue;
     }
 
-    // 2. Extension check
+    // 2. WASM check
+    if (ext === '.wasm') {
+      findings.push({
+        analyzer: 'binaries',
+        type: 'wasm-file',
+        severity: 'warn',
+        id: 'wasm-file',
+        path: file,
+        label: `WebAssembly file found: "${file}"`,
+        fix: 'Ensure WebAssembly files are reviewed for safety and necessity.',
+      });
+      continue;
+    }
+
+    // 3. Extension check
     if (BINARY_EXTS.has(ext)) {
       const isShell = ['.sh', '.bat', '.cmd'].includes(ext);
       findings.push({

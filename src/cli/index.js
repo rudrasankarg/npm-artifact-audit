@@ -20,7 +20,12 @@ function getSha256(filePath) {
 
 function runReproduce() {
   console.log('\nRunning Reproducibility Check...');
-  console.log('Building package twice to compare artifacts...\n');
+  console.log('Running npm pack twice and comparing the resulting tarballs.\n');
+  console.log('Note: This checks whether your build pipeline produces byte-for-byte');
+  console.log('identical output across two consecutive runs. It does NOT guarantee');
+  console.log('the build is trustworthy, and differences do not automatically indicate');
+  console.log('a security problem — timestamps, random IDs, or nondeterministic');
+  console.log('bundlers are common causes of divergence.\n');
 
   const tmp1 = fs.mkdtempSync(path.join(require('os').tmpdir(), 'reproduce-1-'));
   const tmp2 = fs.mkdtempSync(path.join(require('os').tmpdir(), 'reproduce-2-'));
@@ -44,11 +49,13 @@ function runReproduce() {
     console.log(`Build #2: SHA256 ${hash2.slice(0, 12)}...`);
 
     if (hash1 === hash2) {
-      console.log('\n\x1b[32m✓ Artifacts are identical. Build is reproducible.\x1b[0m\n');
+      console.log('\n\x1b[32m✓ Artifacts are byte-for-byte identical across two consecutive builds.\x1b[0m');
+      console.log('\x1b[2m  This suggests your build pipeline is deterministic, but does not\x1b[0m');
+      console.log('\x1b[2m  prove the resulting artifact is free of malicious or sensitive content.\x1b[0m\n');
       process.exit(0);
     }
 
-    console.log('\n\x1b[31m✗ Artifacts differ\x1b[0m\n');
+    console.log('\n\x1b[31m✗ Artifacts differ between the two builds.\x1b[0m\n');
 
     // Extract both to diff files
     const tar = require('tar');
@@ -95,13 +102,17 @@ function runReproduce() {
       }
     }
 
-    console.log('Changed files:');
+    console.log('Files that differed between builds:');
     changed.forEach(f => console.log(`  - ${f}`));
 
-    console.log('\nPossible causes:');
-    console.log('  - Timestamps embedded in assets or bundle files');
-    console.log('  - Generated metadata (e.g. build id, compilation dates)');
-    console.log('  - Nondeterministic build compilation/bundling steps');
+    console.log('\nCommon non-security causes of build divergence:');
+    console.log('  - Timestamps embedded in bundle files or generated assets');
+    console.log('  - Random IDs or build hashes injected by bundlers (webpack, esbuild, etc.)');
+    console.log('  - Nondeterministic dependency resolution (missing lock file)');
+    console.log('  - Environment-specific metadata (hostnames, paths, env vars in output)');
+    console.log('');
+    console.log('If none of the above apply, investigate whether the changing files');
+    console.log('could be influenced by external state (network, time, random seeds).');
     console.log('');
     process.exit(1);
 

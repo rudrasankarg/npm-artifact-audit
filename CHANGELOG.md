@@ -7,6 +7,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.4.0] — 2026-09-14
+
+### Changed
+
+**Severity corrections:**
+- **`source-map`** — downgraded from `error` to `warn`. Source maps are entirely normal for open-source packages; the tool was creating noise for legitimate use cases. The finding now advisory, with a note that the concern applies primarily to proprietary code.
+- **`package-too-large`** — downgraded from `error` to `warn`. Package size is not inherently a security issue; a legitimate package can be large. The finding now prompts review rather than blocking publish unconditionally. Individual file `large-file-extreme` (>20 MB single file) remains an `error`.
+- **`.wasm`** — separated from the native binary `error` group and now emits a `warn` (`wasm-file`) instead. WebAssembly is increasingly normal in npm packages (parsers, codecs, crypto). The signal worth reviewing is whether WASM is *unexpected* for this package, not its mere presence.
+
+**Wording corrections:**
+- **`reproduce` command** — output now includes an explicit caveat that identical artifacts do not prove the build is trustworthy, and differing artifacts do not automatically indicate a security problem. The success message changed from `"Build is reproducible"` to `"Artifacts are byte-for-byte identical across two consecutive builds"` to accurately describe what was tested. The failure output now lists nondeterministic bundler behavior and missing lock files as common non-security causes.
+- **`diff` execution surface label** — renamed from `"NEW EXECUTION SURFACE"` to `"INSTALL HOOK CHANGES"`, with a clarifying note that a changed install hook is not automatically a threat but warrants inspection. Now also distinguishes between new hooks and modified hooks.
+
+**README corrections:**
+- Removed the `"The first tool in this specific security surface"` claim from the comparison table. The defensible claim is `"Scoped to the publish surface specifically — the exact artifact that leaves your machine"`.
+- Updated the `What it checks` tables to reflect the new severity levels for `source-map`, `wasm-file`, and `package-too-large`.
+- Updated the `reproduce` command description with accurate scope and caveats.
+
+---
+
 ## [1.3.0] — 2026-08-23
 
 ### Added
