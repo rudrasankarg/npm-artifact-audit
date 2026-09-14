@@ -105,6 +105,22 @@ Useful for detecting nondeterministic build pipelines — but note the limits:
 - **Identical artifacts** do not prove the build is trustworthy or free of sensitive content.
 - **Differing artifacts** do not automatically indicate a security problem — timestamps, random IDs, and nondeterministic bundlers are common causes.
 
+### 5. `npx npm-artifact-audit runtime <package>`
+
+Performs **dynamic behavioral analysis** on a target package's install scripts (e.g. `preinstall`, `postinstall`).
+
+While the default `audit` command statically analyzes what a package *says* it will do, the `runtime` command runs the install scripts in a lightweight Node.js instrumentation sandbox to log what they *actually* do:
+
+```bash
+npx npm-artifact-audit runtime suspicious-package@2.4.1
+```
+
+**What it intercepts:**
+- Outbound network requests (`http`, `https`, `fetch`)
+- Spawning child processes and shell commands (`child_process.exec`, `spawn`)
+- Sensitive filesystem writes (modifying files in `~/.config`, `/etc/`)
+- Environment variable access (`process.env.NPM_TOKEN`, etc.)
+
 ---
 
 ## What it checks

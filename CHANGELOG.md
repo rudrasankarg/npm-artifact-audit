@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.6.0] — 2026-09-14
+
+### Added
+- **Dynamic Runtime Analyzer (`runtime` command):** Added a new security layer that executes a package's install scripts inside a lightweight Node.js instrumentation sandbox to log their actual behavior. This provides a dynamic complement to the static `audit` command.
+- The `runtime` command intercepts and reports on outbound network requests, child process spawning, sensitive filesystem writes, and environment variable access.
+
+---
+
 ## [1.5.0] — 2026-09-14
 
 ### Added

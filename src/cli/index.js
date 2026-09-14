@@ -13,6 +13,7 @@ const { diffArtifact } = require('../diff/artifact-diff');
 const { reportAudit, reportDiff } = require('../reporters/terminal');
 const { reportAuditJson, reportDiffJson } = require('../reporters/json');
 const { loadConfig } = require('../config');
+const { executeRuntimeCommand } = require('./runtime');
 
 function getSha256(filePath) {
   const content = fs.readFileSync(filePath);
@@ -144,6 +145,7 @@ Commands:
   diff [version]         Compare the local package tarball against a published version (default: latest)
   why [file]             Explain why a specific file is being shipped in the package
   reproduce              Compare two package builds to check for reproducibility
+  runtime [package]      Dynamically analyze install script behavior of a package
 
 Options:
   --json                 Output results as JSON
@@ -251,6 +253,12 @@ function main() {
 
   if (command === 'reproduce') {
     runReproduce();
+    return;
+  }
+
+  if (command === 'runtime') {
+    // args[1] will be the package name since args[0] is 'runtime'
+    executeRuntimeCommand(args.slice(1));
     return;
   }
 
